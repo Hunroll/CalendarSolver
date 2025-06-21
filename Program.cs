@@ -7,7 +7,7 @@ namespace CalendarSolver
         static void Main(string[] args)
         {
             int day = 21; 
-            int month = 6;
+            int month = 1;
             if (args.Length == 2)
             {
                 day = Convert.ToInt32(args[0]);
@@ -145,15 +145,22 @@ namespace CalendarSolver
                 {
                     for (int j = 0; j < 8 - figures[figId][t].w; j++)
                     {
-                        ulong shiftedFig = figures[figId][t].getShifted(i, j);
+                        ulong shiftedFig = figures[figId][t].getShifted(j, i);
                         if ((field & shiftedFig) == 0)
                         {
+#if DEBUG
+                            if (figId == 0)
+                            {
+                                Console.WriteLine("Trying new pos for FirstFig: ");
+                                Tools.PrintBin(field | shiftedFig);
+                            }
+#endif
                             res = Solve(field | shiftedFig, figId + 1);
                         }
                         if (res)
                         {
 #if !FF
-                            Console.WriteLine(String.Format("Figure: {0}, Type: {1}, Row: {3}, Col: {2}", figId, t, i, j));
+                            Console.WriteLine(String.Format("Figure: {0}, Type: {1}, Row: {2}, Col: {3}", figId, t, i, j));
 #endif
                             return res;
                         }
