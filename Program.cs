@@ -6,173 +6,161 @@ namespace CalendarSolver
     {
         static void Main(string[] args)
         {
-            Solver s = new Solver(5, 33);
-            s.Solve();
+            int day = 21; 
+            int month = 6;
+            if (args.Length == 2)
+            {
+                day = Convert.ToInt32(args[0]);
+                month = Convert.ToInt32(args[1]);
+            }
+            Solver s = new Solver();
+
+            ulong field = 0b00000011_00000011_00000001_00000001_00000001_00000001_00011111_11111111UL;
+            if (month > 6)
+                month += 2;
+            field |= 1UL << (64 - month);
+            field |= 1UL << (48 - (day + (day - 1) / 7));
+
+#if !FF
+            Tools.PrintBin(field);
+#endif
+
+            s.Solve(field);
         }
     }
 
-    class Figure
+    class FigureFactory
     {
         public int w, h;
-        public byte[][] matrix;
-        public Figure(int w, int h, uint binary)
+        public ulong vector;
+        public FigureFactory(int w, int h, ulong binary)
         {
             this.w = w;
             this.h = h;
-            this.matrix = new byte[h][];
-            for (int i = h - 1; i >= 0; i--)
+            this.vector = binary;
+
+        }
+
+        public UInt64 getShifted(int rightShift, int downShift)
+        {
+            return vector >> (rightShift + 8 * downShift);
+        }
+    }
+
+    class Tools
+    {
+        public static void PrintBin(ulong vector)
+        {
+            Console.WriteLine("dumping " + vector);
+            for (int i = 0; i < 8; i++)
             {
-                this.matrix[i] = new byte[w];
-                for (int j = w - 1; j >= 0; j--)
+                ulong line = (vector >> (8 * (7 - i))) & 255UL;
+                for (int j = 0; j < 8; j++)
                 {
-                    this.matrix[i][j] = (byte)(binary & 1);
-                    binary >>= 1;
+                    Console.Write(line >> (7 - j) & 1);
                 }
+                Console.Write('\n');
             }
         }
     }
 
     class Solver
     {
-        byte[][] field;
-        Figure[][] figures;
-        public Solver(int id1, int id2)
+        FigureFactory[][] figures;
+        public Solver()
         {
-            field = new byte[7][];
-            for (int i = 0; i < 7; i++)
-            {
-                field[i] = new byte[7];
-            }
+            figures = new FigureFactory[8][];
 
-            field[0][6] = 1;
-            field[1][6] = 1;
-            field[6][3] = 1;
-            field[6][4] = 1;
-            field[6][5] = 1;
-            field[6][6] = 1;
+            figures[0] = new FigureFactory[2]; // 3x2 rect
+            figures[0][0] = new FigureFactory(3, 2, 0b11100000_11100000UL << 48);
+            figures[0][1] = new FigureFactory(2, 3, 0b11000000_11000000_11000000UL << 40);
 
-            field[id1 / 7][id1 % 7] = 1;
-            field[id2 / 7][id2 % 7] = 1;
+            figures[1] = new FigureFactory[4]; // 3x2 C
+            figures[1][0] = new FigureFactory(3, 2, 0b11100000_10100000UL << 48);
+            figures[1][1] = new FigureFactory(3, 2, 0b10100000_11100000UL << 48);
+            figures[1][2] = new FigureFactory(2, 3, 0b11000000_01000000_11000000UL << 40);
+            figures[1][3] = new FigureFactory(2, 3, 0b11000000_10000000_11000000UL << 40);
 
-            figures = new Figure[8][];
+            figures[2] = new FigureFactory[4]; // 3x3 corner
+            figures[2][0] = new FigureFactory(3, 3, 0b11100000_10000000_10000000UL << 40);
+            figures[2][1] = new FigureFactory(3, 3, 0b11100000_00100000_00100000UL << 40);
+            figures[2][2] = new FigureFactory(3, 3, 0b10000000_10000000_11100000UL << 40);
+            figures[2][3] = new FigureFactory(3, 3, 0b00100000_00100000_11100000UL << 40);
 
-            figures[0] = new Figure[2]; // 3x2 rect
-            figures[0][0] = new Figure(3, 2, 0b111111);
-            figures[0][1] = new Figure(2, 3, 0b111111);
+            figures[3] = new FigureFactory[4]; // 3x3 S
+            figures[3][0] = new FigureFactory(3, 3, 0b11000000_01000000_01100000UL << 40);
+            figures[3][1] = new FigureFactory(3, 3, 0b01100000_01000000_11000000UL << 40);
+            figures[3][2] = new FigureFactory(3, 3, 0b10000000_11100000_00100000UL << 40);
+            figures[3][3] = new FigureFactory(3, 3, 0b00100000_11100000_10000000UL << 40);
 
-            figures[1] = new Figure[4]; // 3x2 C
-            figures[1][0] = new Figure(3, 2, 0b111101);
-            figures[1][1] = new Figure(3, 2, 0b101111);
-            figures[1][2] = new Figure(2, 3, 0b110111);
-            figures[1][3] = new Figure(2, 3, 0b111011);
+            figures[4] = new FigureFactory[8]; // 3x2 rect - corner
+            figures[4][0] = new FigureFactory(3, 2, 0b11100000_11000000UL << 48);
+            figures[4][1] = new FigureFactory(3, 2, 0b11000000_11100000UL << 48);
+            figures[4][2] = new FigureFactory(3, 2, 0b01100000_11100000UL << 48);
+            figures[4][3] = new FigureFactory(3, 2, 0b11100000_01100000UL << 48);
+            figures[4][4] = new FigureFactory(2, 3, 0b11000000_11000000_10000000UL << 40);
+            figures[4][5] = new FigureFactory(2, 3, 0b11000000_11000000_01000000UL << 40);
+            figures[4][6] = new FigureFactory(2, 3, 0b01000000_11000000_11000000UL << 40);
+            figures[4][7] = new FigureFactory(2, 3, 0b10000000_11000000_11000000UL << 40);
 
-            figures[2] = new Figure[4]; // 3x3 corner
-            figures[2][0] = new Figure(3, 3, 0b111100100);
-            figures[2][1] = new Figure(3, 3, 0b111001001);
-            figures[2][2] = new Figure(3, 3, 0b100100111);
-            figures[2][3] = new Figure(3, 3, 0b001001111);
+            figures[5] = new FigureFactory[8]; // 4x2 L shifted
+            figures[5][0] = new FigureFactory(4, 2, 0b11110000_01000000UL << 48);
+            figures[5][1] = new FigureFactory(4, 2, 0b11110000_00100000UL << 48);
+            figures[5][2] = new FigureFactory(4, 2, 0b01000000_11110000UL << 48);
+            figures[5][3] = new FigureFactory(4, 2, 0b00100000_11110000UL << 48);
+            figures[5][4] = new FigureFactory(2, 4, 0b10000000_11000000_10000000_10000000UL << 32);
+            figures[5][5] = new FigureFactory(2, 4, 0b10000000_10000000_11000000_10000000UL << 32);
+            figures[5][6] = new FigureFactory(2, 4, 0b01000000_11000000_01000000_01000000UL << 32);
+            figures[5][7] = new FigureFactory(2, 4, 0b01000000_01000000_11000000_01000000UL << 32);
 
-            figures[3] = new Figure[4]; // 3x3 S
-            figures[3][0] = new Figure(3, 3, 0b110_010_011);
-            figures[3][1] = new Figure(3, 3, 0b011_010_110);
-            figures[3][2] = new Figure(3, 3, 0b100_111_001);
-            figures[3][3] = new Figure(3, 3, 0b001_111_100);
+            figures[6] = new FigureFactory[8]; // 4x2 Snake
+            figures[6][0] = new FigureFactory(4, 2, 0b11100000_00110000UL << 48);
+            figures[6][1] = new FigureFactory(4, 2, 0b01110000_11000000UL << 48);
+            figures[6][2] = new FigureFactory(4, 2, 0b11000000_01110000UL << 48);
+            figures[6][3] = new FigureFactory(4, 2, 0b00110000_11100000UL << 48);
+            figures[6][4] = new FigureFactory(2, 4, 0b01000000_01000000_11000000_10000000UL << 32);
+            figures[6][5] = new FigureFactory(2, 4, 0b01000000_11000000_10000000_10000000UL << 32);
+            figures[6][6] = new FigureFactory(2, 4, 0b10000000_10000000_11000000_01000000UL << 32);
+            figures[6][7] = new FigureFactory(2, 4, 0b10000000_11000000_01000000_01000000UL << 32);
 
-            figures[4] = new Figure[8]; // 3x2 rect - corner
-            figures[4][0] = new Figure(3, 2, 0b111110);
-            figures[4][1] = new Figure(3, 2, 0b110111);
-            figures[4][2] = new Figure(3, 2, 0b011111);
-            figures[4][3] = new Figure(3, 2, 0b111011);
-            figures[4][4] = new Figure(2, 3, 0b111110);
-            figures[4][5] = new Figure(2, 3, 0b111101);
-            figures[4][6] = new Figure(2, 3, 0b011111);
-            figures[4][7] = new Figure(2, 3, 0b101111);
-
-            figures[5] = new Figure[8]; // 4x2 L shifted
-            figures[5][0] = new Figure(4, 2, 0b11110100);
-            figures[5][1] = new Figure(4, 2, 0b11110010);
-            figures[5][2] = new Figure(4, 2, 0b01001111);
-            figures[5][3] = new Figure(4, 2, 0b00101111);
-            figures[5][4] = new Figure(2, 4, 0b10111010);
-            figures[5][5] = new Figure(2, 4, 0b10101110);
-            figures[5][6] = new Figure(2, 4, 0b01110101);
-            figures[5][7] = new Figure(2, 4, 0b01011101);
-
-            figures[6] = new Figure[8]; // 4x2 Snake
-            figures[6][0] = new Figure(4, 2, 0b1110_0011);
-            figures[6][1] = new Figure(4, 2, 0b0111_1100);
-            figures[6][2] = new Figure(4, 2, 0b1100_0111);
-            figures[6][3] = new Figure(4, 2, 0b0011_1110);
-            figures[6][4] = new Figure(2, 4, 0b01011110);
-            figures[6][5] = new Figure(2, 4, 0b01111010);
-            figures[6][6] = new Figure(2, 4, 0b10101101);
-            figures[6][7] = new Figure(2, 4, 0b10110101);
-
-            figures[7] = new Figure[8]; // 4x2 L
-            figures[7][0] = new Figure(4, 2, 0b11111000);
-            figures[7][1] = new Figure(4, 2, 0b11110001);
-            figures[7][2] = new Figure(4, 2, 0b10001111);
-            figures[7][3] = new Figure(4, 2, 0b00011111);
-            figures[7][4] = new Figure(2, 4, 0b11101010);
-            figures[7][5] = new Figure(2, 4, 0b11010101);
-            figures[7][6] = new Figure(2, 4, 0b10101011);
-            figures[7][7] = new Figure(2, 4, 0b01010111);
+            figures[7] = new FigureFactory[8]; // 4x2 L
+            figures[7][0] = new FigureFactory(4, 2, 0b11110000_10000000UL << 48);
+            figures[7][1] = new FigureFactory(4, 2, 0b11110000_00010000UL << 48);
+            figures[7][2] = new FigureFactory(4, 2, 0b10000000_11110000UL << 48);
+            figures[7][3] = new FigureFactory(4, 2, 0b00010000_11110000UL << 48);
+            figures[7][4] = new FigureFactory(2, 4, 0b11000000_10000000_10000000_10000000UL << 32);
+            figures[7][5] = new FigureFactory(2, 4, 0b11000000_01000000_01000000_01000000UL << 32);
+            figures[7][6] = new FigureFactory(2, 4, 0b10000000_10000000_10000000_11000000UL << 32);
+            figures[7][7] = new FigureFactory(2, 4, 0b01000000_01000000_01000000_11000000UL << 32);
         }
 
-        public bool Solve(int f = 0)
+        public bool Solve(ulong field, int figId = 0)
         {
-            if (f >= 8)
+            if (figId >= 8)
                 return true;
             bool res = false;
-            for (int t = 0; t < figures[f].Length; t++)
+            for (int t = 0; t < figures[figId].Length; t++)
             {
-                for (int i = 0; i < 8 - figures[f][t].h; i++)
+                for (int i = 0; i < 8 - figures[figId][t].h; i++)
                 {
-                    for (int j = 0; j < 8 - figures[f][t].w; j++)
+                    for (int j = 0; j < 8 - figures[figId][t].w; j++)
                     {
-                        if (insert(figures[f][t], i, j))
+                        ulong shiftedFig = figures[figId][t].getShifted(i, j);
+                        if ((field & shiftedFig) == 0)
                         {
-                            res = Solve(f + 1);
+                            res = Solve(field | shiftedFig, figId + 1);
                         }
                         if (res)
                         {
-                            Console.WriteLine(String.Format("Figure: {0}, Type: {1}, Row: {2}, Col: {3}", f, t, i, j));
+#if !FF
+                            Console.WriteLine(String.Format("Figure: {0}, Type: {1}, Row: {3}, Col: {2}", figId, t, i, j));
+#endif
                             return res;
                         }
-                        take(figures[f][t], i, j);
                     }
                 }
             }
             return res;
         }
-
-
-
-        private bool insert(Figure f, int row, int col)
-        {
-            bool res = true;
-            for (int i = 0; i < f.h; i++)
-            {
-                for (int j = 0; j < f.w; j++)
-                {
-                    field[row + i][col + j] += f.matrix[i][j];
-                    if (field[row + i][col + j] > 1)
-                        res = false;
-                }
-            }
-            return res;
-        }
-
-        private void take(Figure f, int row, int col)
-        {
-            for (int i = 0; i < f.h; i++)
-            {
-                for (int j = 0; j < f.w; j++)
-                {
-                    field[row + i][col + j] -= f.matrix[i][j];
-                }
-            }
-        }
-
     }
 }
