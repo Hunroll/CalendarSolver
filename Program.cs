@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 
 namespace CalendarSolver
 {
@@ -12,9 +13,23 @@ namespace CalendarSolver
             {
                 day = Convert.ToInt32(args[0]);
                 month = Convert.ToInt32(args[1]);
+                Console.WriteLine(day + "." + month + " - " + Solve(day, month) + " solutions");
             }
-            Solver s = new Solver();
+            else
+            {
+                Parallel.For(1, 13, (month) =>
+                {
+                    for (int day = 1; day <= 31; day++)
+                    {
+                        Console.WriteLine(day + "." + month + " - " + Solve(day, month) + " solutions");
+                    }
+                });
+            }
 
+        }
+
+        static int Solve(int day, int month)
+        {
             ulong field = 0b00000011_00000011_00000001_00000001_00000001_00000001_00011111_11111111UL;
             if (month > 6)
                 month += 2;
@@ -24,8 +39,8 @@ namespace CalendarSolver
 #if !FF
             Tools.PrintBin(field);
 #endif
-
-            s.Solve(field);
+            int cnt = Solver.Solve(field);
+            return cnt;
         }
     }
 
@@ -64,10 +79,10 @@ namespace CalendarSolver
         }
     }
 
-    class Solver
+    static class Solver
     {
-        FigureFactory[][] figures;
-        public Solver()
+        static FigureFactory[][] figures;
+        static Solver()
         {
             figures = new FigureFactory[8][];
 
@@ -134,11 +149,11 @@ namespace CalendarSolver
             figures[7][7] = new FigureFactory(2, 4, 0b01000000_01000000_01000000_11000000UL << 32);
         }
 
-        public bool Solve(ulong field, int figId = 0)
+        public static int Solve(ulong field, int figId = 0)
         {
             if (figId >= 8)
-                return true;
-            bool res = false;
+                return 1;
+            int res = 0;
             for (int t = 0; t < figures[figId].Length; t++)
             {
                 for (int i = 0; i < 8 - figures[figId][t].h; i++)
@@ -155,15 +170,16 @@ namespace CalendarSolver
                                 Tools.PrintBin(field | shiftedFig);
                             }
 #endif
-                            res = Solve(field | shiftedFig, figId + 1);
-                        }
-                        if (res)
-                        {
+                            int curRes = Solve(field | shiftedFig, figId + 1);
+                            if (curRes > 0)
+                            {
 #if !FF
-                            Console.WriteLine(String.Format("Figure: {0}, Type: {1}, Row: {2}, Col: {3}", figId, t, i, j));
+                                Console.WriteLine(String.Format("Figure: {0}, Type: {1}, Row: {2}, Col: {3}", figId, t, i, j));
 #endif
-                            return res;
+                                res += curRes;
+                            }
                         }
+                        
                     }
                 }
             }
